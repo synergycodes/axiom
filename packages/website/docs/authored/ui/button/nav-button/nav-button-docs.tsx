@@ -23,9 +23,15 @@ export function NavButtonDocs() {
     <ComponentPage
       preview={
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <NavButton icon={<Check />} />
-          <NavButton icon={<Plus />} shape="circle" />
-          <NavButton icon={<User />} noBackground={true} />
+          <NavButton>
+            <Check />
+          </NavButton>
+          <NavButton shape="circle">
+            <Plus />
+          </NavButton>
+          <NavButton iconOnly={true}>
+            <User />
+          </NavButton>
         </div>
       }
       cssPaths={[
@@ -33,7 +39,6 @@ export function NavButtonDocs() {
         'components/button/styles/icon-size.module.css',
         'components/button/styles/border-radius.module.css',
         'components/button/styles/icon-padding.module.css',
-        'components/button/nav-button/nav-button.module.css',
       ]}
       componentPath="components/button/nav-button/nav-button.tsx"
       exampleCode={exampleCode}
