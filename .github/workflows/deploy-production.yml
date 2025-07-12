@@ -1,0 +1,80 @@
+name: Deploy Production
+
+env:
+  APP_LOCATION: ''
+  OUTPUT_LOCATION: 'packages/website/build'
+
+on:
+  push:
+    branches: ['release/*']
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-production:
+    runs-on: ubuntu-latest
+    name: Deploy to Production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install pnpm
+        run: corepack prepare pnpm@10.9.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build UI Package
+        run: pnpm ui build
+
+      - name: Build Documentation
+        run: pnpm website build
+
+      - name: Check if version changed
+        id: version-check
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          PUBLISHED_VERSION=$(npm view @axiomhq/axiom-ui-components version 2>/dev/null || echo "0.0.0")
+          echo "current-version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "published-version=$PUBLISHED_VERSION" >> $GITHUB_OUTPUT
+          if [ "$CURRENT_VERSION" != "$PUBLISHED_VERSION" ]; then
+            echo "version-changed=true" >> $GITHUB_OUTPUT
+            echo "Version changed from $PUBLISHED_VERSION to $CURRENT_VERSION"
+          else
+            echo "version-changed=false" >> $GITHUB_OUTPUT
+            echo "Version unchanged: $CURRENT_VERSION"
+          fi
+
+      - name: Publish NPM Package
+        if: steps.version-check.outputs.version-changed == 'true'
+        run: pnpm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Deploy Documentation to Production
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_PROD_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          output_location: ${{ env.OUTPUT_LOCATION }}
+          app_location: ${{ env.APP_LOCATION }}
+          app_build_command: 'pnpm website build'
+          action: 'upload'
+          skip_api_build: true
+          deployment_environment: 'release'
+        env:
+          CUSTOM_BUILD_COMMAND: corepack enable && corepack prepare pnpm@10.9.0 --activate && pnpm install --frozen-lockfile && pnpm ui build && pnpm website build
+          ENABLE_NODE_MONOREPO_BUILD: true
+          NODE_VERSION: 22
